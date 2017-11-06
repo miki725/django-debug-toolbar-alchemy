@@ -13,7 +13,7 @@ Django Debug Toolbar panel for SQLAlchemy.
 Overview
 --------
 
-This package completely mimicks default Django Debug Toolbar SQL panel
+This package completely mimics default Django Debug Toolbar SQL panel
 (internally its actually subclassed) but instead of displaying queries done
 via Django ORM, SQLAlchemy generated queries are displayed.
 Rest of the functionality is the same.
