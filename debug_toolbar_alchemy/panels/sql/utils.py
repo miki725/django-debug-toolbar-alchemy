@@ -4,11 +4,6 @@ import re
 
 
 def swap_fields(sql):
-    expr = (
-        r'(JOIN</strong> [\w\d\.]+'
-        r'(?: <strong>AS</strong> [\w\d\.]+)? <strong>ON</strong> )'
-        r'((?:[\w\d\.]+ = [&#;\'"\w\d\.]+(?: <strong>AND</strong> )?)+)'
-    )
     subs = (
         r'\1'
         r'<a class="djDebugUncollapsed djDebugToggle" href="#">'
@@ -16,11 +11,24 @@ def swap_fields(sql):
         r'</a> '
         r'<a class="djDebugCollapsed djDebugToggle" href="#">\2</a> '
     )
-    return re.sub(expr, subs, sql)
+    for expr in [
+        (
+            r'(JOIN</strong> [\w\d\.]+'
+            r'(?: <strong>AS</strong> [\w\d\.]+)? <strong>ON</strong> )'
+            r'((?:[\w\d\.]+ = [&#;\'"\w\d\.]+(?: <strong>AND</strong> )?)+)'
+        ),
+        (
+            r'(<strong>INSERT</strong> <strong>INTO</strong> [^\(]+)'
+            r'(\([^\)]+\))'
+        ),
+    ]:
+        sql = re.sub(expr, subs, sql)
+    return sql
 
 
 def add_newlines(sql):
     statements = [
+        '<strong>VALUES</strong>',
         '<strong>FROM</strong>',
         '<strong>JOIN</strong>',
         '<strong>LEFT OUTER JOIN</strong>',
