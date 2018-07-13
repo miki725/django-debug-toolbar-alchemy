@@ -20,6 +20,7 @@ class SQLAlchemyTracker(object):
         self.engine = engine
         self.alias = alias
         self.logger = logger
+        self.tmp = {}
 
         self.register()
 
@@ -32,24 +33,34 @@ class SQLAlchemyTracker(object):
         event.remove(self.engine, 'after_execute', self.after_execute)
 
     def before_execute(self, conn, clause, multiparams, params):
-        clause.start_time = time()
+        try:
+            clause.start_time = time()
+        except AttributeError:
+            self.tmp[id(clause)] = time()
 
     def after_execute(self, conn, clause, multiparams, params, result):
-        start_time = clause.start_time
+        try:
+            start_time = clause.start_time
+        except AttributeError:
+            start_time = self.tmp.pop(id(clause))
         stop_time = time()
         duration = (stop_time - start_time) * 1000
         config = dt_settings.get_config()
 
-        raw_sql = ' '.join(six.text_type(
-            clause.compile(dialect=self.engine.dialect,
-                           compile_kwargs={})
-        ).splitlines())
+        try:
+            raw_sql = ' '.join(six.text_type(
+                clause.compile(dialect=self.engine.dialect,
+                               compile_kwargs={})
+            ).splitlines())
+        except AttributeError:
+            raw_sql = ' '.join(six.text_type(clause).splitlines())
+
         try:
             sql = ' '.join(six.text_type(
                 clause.compile(dialect=self.engine.dialect,
                                compile_kwargs={'literal_binds': True})
             ).splitlines())
-        except (CompileError, TypeError, NotImplementedError):
+        except (CompileError, TypeError, NotImplementedError, AttributeError):
             # not all queries support literal_binds
             sql = raw_sql
 
