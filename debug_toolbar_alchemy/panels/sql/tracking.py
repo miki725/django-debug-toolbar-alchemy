@@ -36,7 +36,7 @@ class SQLAlchemyTracker(object):
         self.loggers[current_thread().ident] = logger
 
     def unregister(self):
-        self.loggers.pop(current_thread().ident)
+        self.loggers.pop(current_thread().ident, None)
 
         # no loggers left so make handlers very cheap to execute
         if not self.loggers:
