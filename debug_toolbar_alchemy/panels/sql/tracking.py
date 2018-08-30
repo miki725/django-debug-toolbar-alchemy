@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, print_function, unicode_literals
 import json
-from threading import local
+from threading import current_thread
 from time import time
 
 import six
@@ -12,33 +12,60 @@ from sqlalchemy import event
 from sqlalchemy.exc import CompileError
 
 
-state = local()
+trackers = {}
 
 
 class SQLAlchemyTracker(object):
-    def __init__(self, engine, alias, logger):
+    def __init__(self, engine, alias):
         self.engine = engine
         self.alias = alias
-        self.logger = logger
+        self.loggers = {}
         self.tmp = {}
 
-        self.register()
+        for i in (
+            (self.engine, 'before_execute', self.before_execute),
+            (self.engine, 'after_execute', self.after_execute)
+        ):
+            if not event.contains(*i):
+                event.listen(*i)
 
-    def register(self):
-        event.listen(self.engine, 'before_execute', self.before_execute)
-        event.listen(self.engine, 'after_execute', self.after_execute)
+    def register(self, logger):
+        self._before_execute = self._before_execute_
+        self._after_execute = self._after_execute_
+
+        self.loggers[current_thread().ident] = logger
 
     def unregister(self):
-        event.remove(self.engine, 'before_execute', self.before_execute)
-        event.remove(self.engine, 'after_execute', self.after_execute)
+        self.loggers.pop(current_thread().ident)
 
-    def before_execute(self, conn, clause, multiparams, params):
+        # no loggers left so make handlers very cheap to execute
+        if not self.loggers:
+            self._before_execute = lambda *args, **kwargs: None
+            self._after_execute = lambda *args, **kwargs: None
+
+    def before_execute(self, *args, **kwargs):
+        return self._before_execute(*args, **kwargs)
+
+    def after_execute(self, *args, **kwargs):
+        return self._after_execute(*args, **kwargs)
+
+    def _before_execute(self, conn, clause, multiparams, params):
+        logger = self.loggers.get(current_thread().ident)
+        if not logger:
+            return
+
         try:
             clause.start_time = time()
         except AttributeError:
             self.tmp[id(clause)] = time()
 
-    def after_execute(self, conn, clause, multiparams, params, result):
+    _before_execute_ = _before_execute
+
+    def _after_execute(self, conn, clause, multiparams, params, result):
+        logger = self.loggers.get(current_thread().ident)
+        if not logger:
+            return
+
         try:
             start_time = clause.start_time
         except AttributeError:
@@ -92,9 +119,11 @@ class SQLAlchemyTracker(object):
             'template_info': template_info,
         }
 
-        self.logger.record(**params)
+        logger.record(**params)
 
         return params
+
+    _after_execute_ = _after_execute
 
     def _decode(self, param):
         try:
@@ -104,16 +133,13 @@ class SQLAlchemyTracker(object):
 
 
 def wrap_engine(engine, alias, panel):
-    if not hasattr(state, 'trackers'):
-        state.trackers = {}
-
-    if alias in state.trackers:
-        return
-    state.trackers[alias] = SQLAlchemyTracker(engine, alias, panel)
+    tracker = trackers.get(alias)
+    if not tracker:
+        tracker = trackers[alias] = SQLAlchemyTracker(engine, alias)
+    tracker.register(panel)
 
 
-def unwrap_engine(engine, alias):
-    tracker = getattr(state, 'trackers', {}).pop(alias, None)
+def unwrap_engine(engine, alias, panel):
+    tracker = trackers.get(alias, None)
     if tracker:
         tracker.unregister()
-        del tracker

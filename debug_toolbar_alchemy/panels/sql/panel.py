@@ -28,7 +28,7 @@ class SQLPanel(panels.SQLPanel):
 
     def disable_instrumentation(self):
         for alias, engine in self.engines.items():
-            unwrap_engine(engine, alias)
+            unwrap_engine(engine, alias, self)
 
     def record_stats(self, stats):
         for q in stats.get('queries', []):
