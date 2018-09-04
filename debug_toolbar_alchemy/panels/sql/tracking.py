@@ -1,18 +1,25 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, print_function, unicode_literals
-import json
 from threading import current_thread
 from time import time
 
+import jsonplus as json
 import six
 from debug_toolbar import settings as dt_settings
 from debug_toolbar.utils import get_stack, get_template_info, tidy_stacktrace
 from django.utils.encoding import force_text
 from sqlalchemy import event
+from sqlalchemy.engine.default import DefaultExecutionContext
+from sqlalchemy.engine.util import _distill_params
 from sqlalchemy.exc import CompileError
 
 
 trackers = {}
+
+
+class CursorlessExecutionContext(DefaultExecutionContext):
+    def create_cursor(self):
+        pass
 
 
 class SQLAlchemyTracker(object):
@@ -23,8 +30,8 @@ class SQLAlchemyTracker(object):
         self.tmp = {}
 
         for i in (
-            (self.engine, 'before_execute', self.before_execute),
-            (self.engine, 'after_execute', self.after_execute)
+            (self.engine, "before_execute", self.before_execute),
+            (self.engine, "after_execute", self.after_execute),
         ):
             if not event.contains(*i):
                 event.listen(*i)
@@ -75,29 +82,33 @@ class SQLAlchemyTracker(object):
         config = dt_settings.get_config()
 
         try:
-            raw_sql = ' '.join(six.text_type(
-                clause.compile(dialect=self.engine.dialect,
-                               compile_kwargs={})
-            ).splitlines())
+            raw_compiled = clause.compile(dialect=self.engine.dialect, compile_kwargs={})
         except AttributeError:
-            raw_sql = ' '.join(six.text_type(clause).splitlines())
+            parameters = _distill_params(multiparams, params)
+            raw_sql = " ".join(six.text_type(clause).splitlines())
+        else:
+            con = self.engine.connect()
+            ctx = CursorlessExecutionContext._init_compiled(
+                self.engine.dialect,
+                con,
+                con._Connection__connection,
+                raw_compiled,
+                _distill_params(multiparams, params),
+            )
+            parameters = [list(i) if isinstance(i, (list, tuple)) else i for i in ctx.parameters if i]
+            raw_sql = " ".join(ctx.statement.splitlines())
 
         try:
-            sql = ' '.join(six.text_type(
-                clause.compile(dialect=self.engine.dialect,
-                               compile_kwargs={'literal_binds': True})
-            ).splitlines())
+            sql = " ".join(
+                six.text_type(
+                    clause.compile(dialect=self.engine.dialect, compile_kwargs={"literal_binds": True})
+                ).splitlines()
+            )
         except (CompileError, TypeError, NotImplementedError, AttributeError):
             # not all queries support literal_binds
             sql = raw_sql
 
-        _params = ''
-        try:
-            _params = json.dumps(list(map(self._decode, params)))
-        except Exception:
-            pass  # object not JSON serializable
-
-        if config['ENABLE_STACKTRACES']:
+        if config["ENABLE_STACKTRACES"]:
             stacktrace = tidy_stacktrace(reversed(get_stack()))
         else:
             stacktrace = []
@@ -105,18 +116,18 @@ class SQLAlchemyTracker(object):
         template_info = get_template_info()
 
         params = {
-            'vendor': conn.dialect.name,
-            'alias': self.alias,
-            'sql': sql,
-            'duration': duration,
-            'raw_sql': raw_sql,
-            'params': _params,
-            'stacktrace': stacktrace,
-            'start_time': start_time,
-            'stop_time': stop_time,
-            'is_slow': duration > config['SQL_WARNING_THRESHOLD'],
-            'is_select': sql.lower().strip().startswith('select'),
-            'template_info': template_info,
+            "vendor": conn.dialect.name,
+            "alias": self.alias,
+            "sql": sql,
+            "duration": duration,
+            "raw_sql": raw_sql,
+            "params": json.dumps(parameters),
+            "stacktrace": stacktrace,
+            "start_time": start_time,
+            "stop_time": stop_time,
+            "is_slow": duration > config["SQL_WARNING_THRESHOLD"],
+            "is_select": sql.lower().strip().startswith("select"),
+            "template_info": template_info,
         }
 
         logger.record(**params)
@@ -129,7 +140,7 @@ class SQLAlchemyTracker(object):
         try:
             return force_text(param, strings_only=True)
         except UnicodeDecodeError:
-            return '(encoded string)'
+            return "(encoded string)"
 
 
 def wrap_engine(engine, alias, panel):
