@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, print_function, unicode_literals
 
-from contextlib import contextmanager
-
 from debug_toolbar.decorators import require_show_toolbar
 from django.http import JsonResponse
 from django.template.response import SimpleTemplateResponse
@@ -10,14 +8,6 @@ from django.views.decorators.csrf import csrf_exempt
 
 from ...explain import explain
 from .forms import AlchemySQLSelectForm
-
-
-@contextmanager
-def _execute_and_close(cursor):
-    try:
-        yield
-    finally:
-        cursor.close()
 
 
 @csrf_exempt
@@ -29,7 +19,7 @@ def sql_select(request):
     if not form.is_valid():
         return JsonResponse(dict(form.errors), status=400)
 
-    with _execute_and_close(form.cursor):
+    with form.cursor:
         query = form.cursor.execute(form.cleaned_data["raw_sql"], *form.cleaned_data["params"])
 
     context = {
@@ -53,7 +43,7 @@ def sql_explain(request):
     if not form.is_valid():
         return JsonResponse(dict(form.errors), status=400)
 
-    with _execute_and_close(form.cursor):
+    with form.cursor:
         query = explain(form.cleaned_data["raw_sql"], form.cursor).execute(*form.cleaned_data["params"])
 
     context = {
