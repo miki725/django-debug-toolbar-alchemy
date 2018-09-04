@@ -87,11 +87,10 @@ class SQLAlchemyTracker(object):
             parameters = _distill_params(multiparams, params)
             raw_sql = " ".join(six.text_type(clause).splitlines())
         else:
-            con = self.engine.connect()
             ctx = CursorlessExecutionContext._init_compiled(
                 self.engine.dialect,
-                con,
-                con._Connection__connection,
+                conn,
+                conn._Connection__connection,
                 raw_compiled,
                 _distill_params(multiparams, params),
             )
