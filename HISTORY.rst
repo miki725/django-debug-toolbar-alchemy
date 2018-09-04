@@ -3,6 +3,12 @@
 History
 -------
 
+0.1.3 (2018-09-03)
+~~~~~~~~~~~~~~~~~~
+
+* Added a way to run ``SELECT`` and ``EXPLAIN`` to queries in debug toolbar.
+  Tested in ``sqlite``, ``postgresql`` and ``oracle``.
+
 0.1.2 (2018-08-30)
 ~~~~~~~~~~~~~~~~~~
 
