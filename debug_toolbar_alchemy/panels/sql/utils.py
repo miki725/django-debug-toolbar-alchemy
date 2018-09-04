@@ -2,28 +2,23 @@
 from __future__ import absolute_import, print_function, unicode_literals
 import re
 
+import six
 from debug_toolbar import settings as dt_settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
+
+
+def dict_items_to_str(d):
+    return {str(k): str(v) if isinstance(v, six.string_types) else v for k, v in d.items()}
 
 
 def get_connections():
     try:
         path = dt_settings.get_config()["ALCHEMY_DB_ALIASES"]
     except KeyError:
-        raise ImproperlyConfigured(
-            "Must specify ALCHEMY_DB_ALIASES in DEBUG_TOOLBAR_CONFIG"
-        )
+        raise ImproperlyConfigured("Must specify ALCHEMY_DB_ALIASES in DEBUG_TOOLBAR_CONFIG")
     else:
         return import_string(path)()
-
-
-def execute(cursor, *args, **kwargs):
-    try:
-        query = cursor.execute(*args, **kwargs)
-        return query.fetchall()
-    finally:
-        cursor.close()
 
 
 def swap_fields(sql):

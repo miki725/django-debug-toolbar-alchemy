@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, print_function, unicode_literals
 
-import six
+from contextlib import contextmanager
+
 from debug_toolbar.decorators import require_show_toolbar
 from django.http import JsonResponse
 from django.template.response import SimpleTemplateResponse
@@ -9,7 +10,14 @@ from django.views.decorators.csrf import csrf_exempt
 
 from ...explain import explain
 from .forms import AlchemySQLSelectForm
-from .utils import execute
+
+
+@contextmanager
+def _execute_and_close(cursor):
+    try:
+        yield
+    finally:
+        cursor.close()
 
 
 @csrf_exempt
@@ -21,17 +29,17 @@ def sql_select(request):
     if not form.is_valid():
         return JsonResponse(dict(form.errors), status=400)
 
-    sql = form.cleaned_data["raw_sql"]
-    params = form.cleaned_data["params"]
-    result = execute(form.cursor, sql, *params)
-    headers = result[0].keys() if result else []
+    with _execute_and_close(form.cursor):
+        query = form.cursor.execute(form.cleaned_data["raw_sql"], *form.cleaned_data["params"])
+
     context = {
-        "result": result,
+        "result": query.fetchall(),
         "sql": form.reformat_sql(),
         "duration": form.cleaned_data["duration"],
-        "headers": headers,
+        "headers": list(query.keys()),
         "alias": form.cleaned_data["alias"],
     }
+
     # Using SimpleTemplateResponse avoids running global context processors.
     return SimpleTemplateResponse("debug_toolbar/panels/sql_select.html", context)
 
@@ -45,20 +53,16 @@ def sql_explain(request):
     if not form.is_valid():
         return JsonResponse(dict(form.errors), status=400)
 
-    sql = six.text_type(
-        explain(form.cleaned_data["raw_sql"]).compile(
-            dialect=form.connection.dialect
-        )
-    )
-    params = form.cleaned_data["params"]
-    result = execute(form.cursor, sql, *params)
-    headers = result[0].keys() if result else []
+    with _execute_and_close(form.cursor):
+        query = explain(form.cleaned_data["raw_sql"], form.cursor).execute(*form.cleaned_data["params"])
+
     context = {
-        "result": result,
+        "result": query.fetchall(),
         "sql": form.reformat_sql(),
         "duration": form.cleaned_data["duration"],
-        "headers": headers,
+        "headers": list(query.keys()),
         "alias": form.cleaned_data["alias"],
     }
+
     # Using SimpleTemplateResponse avoids running global context processors.
     return SimpleTemplateResponse("debug_toolbar/panels/sql_explain.html", context)
