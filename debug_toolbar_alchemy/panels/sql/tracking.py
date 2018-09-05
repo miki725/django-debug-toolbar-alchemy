@@ -11,7 +11,7 @@ from django.utils.encoding import force_text
 from sqlalchemy import event
 from sqlalchemy.engine.default import DefaultExecutionContext
 from sqlalchemy.engine.util import _distill_params
-from sqlalchemy.exc import CompileError
+from sqlalchemy.exc import CompileError, InvalidRequestError
 
 
 trackers = {}
@@ -83,19 +83,29 @@ class SQLAlchemyTracker(object):
 
         try:
             raw_compiled = clause.compile(dialect=self.engine.dialect, compile_kwargs={})
+
         except AttributeError:
-            parameters = _distill_params(multiparams, params)
+            try:
+                parameters = _distill_params(multiparams, params)
+            except InvalidRequestError:
+                parameters = []
             raw_sql = " ".join(six.text_type(clause).splitlines())
+
         else:
-            ctx = CursorlessExecutionContext._init_compiled(
-                self.engine.dialect,
-                conn,
-                conn._Connection__connection,
-                raw_compiled,
-                _distill_params(multiparams, params),
-            )
-            parameters = [list(i) if isinstance(i, (list, tuple)) else i for i in ctx.parameters if i]
-            raw_sql = " ".join(ctx.statement.splitlines())
+            try:
+                ctx = CursorlessExecutionContext._init_compiled(
+                    self.engine.dialect,
+                    conn,
+                    conn._Connection__connection,
+                    raw_compiled,
+                    _distill_params(multiparams, params),
+                )
+            except Exception:
+                parameters = []
+                raw_sql = " ".join(six.text_type(clause).splitlines())
+            else:
+                parameters = ctx.parameters
+                raw_sql = " ".join(ctx.statement.splitlines())
 
         try:
             sql = " ".join(
@@ -120,7 +130,8 @@ class SQLAlchemyTracker(object):
             "sql": sql,
             "duration": duration,
             "raw_sql": raw_sql,
-            "params": json.dumps(parameters),
+            "params": json.dumps([list(i) if isinstance(i, (list, tuple)) else i for i in parameters if i]),
+            'raw_params': tuple(tuple(i.items() if isinstance(i, dict) else i) for i in parameters),
             "stacktrace": stacktrace,
             "start_time": start_time,
             "stop_time": stop_time,
