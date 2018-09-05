@@ -46,6 +46,6 @@ def pg_explain(element, compiler, **kw):
 
 
 @compiles(explain, "oracle")
-def pg_explain(element, compiler, **kw):
+def oracle_explain(element, compiler, **kw):
     sql = "EXPLAIN PLAN FOR "
     return sql + element.sql

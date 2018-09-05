@@ -1,31 +1,26 @@
-.PHONY: clean-pyc clean-build docs clean
+.PHONY: clean-pyc clean-build clean
 
-help:
-	@echo "install - install all requirements including for testing"
-	@echo "install-quite - same as install but pipes all output to /dev/null"
-	@echo "clean - remove all artifacts"
-	@echo "clean-build - remove build artifacts"
-	@echo "clean-pyc - remove Python file artifacts"
-	@echo "lint - check style with flake8"
-	@echo "test - run tests quickly with the default Python"
-	@echo "check - run all necessary steps to check validity of project"
-	@echo "release - package and upload a release"
-	@echo "dist - package"
+help:  ## show help
+	@grep -E '^[a-zA-Z_\-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		cut -d':' -f1- | \
+		sort | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-install:
+
+install:  ## install all requirements including for testing
 	pip install -U -r requirements-dev.txt
 
-install-quite:
+install-quite:  ## same as install but pipes all output to /dev/null
 	pip install -r requirements-dev.txt > /dev/null
 
-clean: clean-build clean-pyc
+clean: clean-build clean-pyc  ## remove all artifacts
 
-clean-build:
+clean-build:  ## remove build artifacts
 	@rm -rf build/
 	@rm -rf dist/
 	@rm -rf *.egg-info
 
-clean-pyc:
+clean-pyc:  ##  remove Python file artifacts
 	-@find . -name '*.pyc' -follow -print0 | xargs -0 rm -f
 	-@find . -name '*.pyo' -follow -print0 | xargs -0 rm -f
 	-@find . -name '__pycache__' -type d -follow -print0 | xargs -0 rm -rf
@@ -33,20 +28,18 @@ clean-pyc:
 importanize:
 	importanize --ci
 
-lint:
+lint:  ## check project flake8 and importanize
 	flake8 .
 	python --version | grep "Python 3" && make importanize || true
 
-test:
+test:  ## run tests quickly with the default Python
 	echo TODO
 
-check: lint clean-build clean-pyc test
+check: lint clean clean test  ## run all necessary steps to check validity of project
 
-release: clean
-	python setup.py sdist upload
-	python setup.py bdist_wheel upload
+release: clean  ## package and upload a release
+	python setup.py sdist bdist_wheel upload
 
-dist: clean
-	python setup.py sdist
-	python setup.py bdist_wheel
+dist: clean  ## create distribution package for testing
+	python setup.py sdist bdist_wheel
 	ls -l dist

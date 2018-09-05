@@ -37,6 +37,7 @@ setup(
     url='https://github.com/miki725/django-debug-toolbar-alchemy',
     license='MIT',
     packages=find_packages(exclude=[]),
+    include_package_data=True,
     install_requires=requirements,
     test_suite='tests',
     tests_require=test_requirements,

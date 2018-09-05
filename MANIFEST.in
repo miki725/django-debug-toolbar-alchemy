@@ -1,5 +1,4 @@
-include *.rst *.txt
-recursive-include tests *
-recursive-include docs *.rst conf.py Makefile make.bat
+include *.rst *.txt Makefile .editorconfig .importanizerc
+recursive-include debug_toolbar_alchemy *.html
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]

@@ -3,6 +3,11 @@
 History
 -------
 
+0.1.4 (2018-09-04)
+~~~~~~~~~~~~~~~~~~
+
+* Added template to be included in ``dist`` package.
+
 0.1.3 (2018-09-03)
 ~~~~~~~~~~~~~~~~~~
 
