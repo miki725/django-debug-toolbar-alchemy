@@ -32,7 +32,14 @@ class SQLPanel(panels.SQLPanel):
         for q in stats.get("queries", []):
             if q.get("sql"):
                 q["sql"] = add_newlines(swap_fields(q["sql"]))
+
         super(SQLPanel, self).record_stats(stats)
+
+        # dont allow stats to be generated multiple times per request
+        # some panels (e.g. history panel)
+        # might call it multiple times and since we massage the sql above
+        # it causes SQL to be rendered badly
+        self.generate_stats = lambda *args, **kwargs: None
 
     @classmethod
     def get_urls(cls):

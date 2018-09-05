@@ -3,6 +3,12 @@
 History
 -------
 
+0.1.5 (2018-09-04)
+~~~~~~~~~~~~~~~~~~
+
+* Fixed when ``multiparams`` are name synonyms in ``UPDATE`` statements.
+* Added support for ``similar`` queries added in debug toolbar base ``SQLPanel``.
+
 0.1.4 (2018-09-04)
 ~~~~~~~~~~~~~~~~~~
 
